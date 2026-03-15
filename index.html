@@ -1,0 +1,1227 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0d0d14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BurakOS">
+  <title>BurakOS</title>
+  <link rel="manifest" href="manifest.json">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d14;
+      --surface: #161622;
+      --surface2: #1e1e2e;
+      --surface3: #252538;
+      --accent: #f0a87e;
+      --accent2: #8ab4f8;
+      --green: #6bcb77;
+      --red: #ff7070;
+      --yellow: #ffd166;
+      --text: #e2e2f0;
+      --muted: #6a6a90;
+      --border: #252538;
+      --nav-h: 70px;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: 'Outfit', sans-serif; }
+
+    /* Grain overlay */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 1000; pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity: 0.4;
+    }
+
+    .app { height: 100vh; display: flex; flex-direction: column; position: relative; }
+    .views { flex: 1; overflow: hidden; position: relative; }
+    .view { position: absolute; inset: 0; overflow-y: auto; padding: 20px 16px calc(var(--nav-h) + 20px); display: none; }
+    .view.active { display: block; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* NAV */
+    .nav {
+      position: fixed; bottom: 0; left: 0; right: 0; height: var(--nav-h);
+      background: rgba(22,22,34,0.95); backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-around;
+      z-index: 100; padding: 0 8px;
+    }
+    .nav-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 8px 16px; border-radius: 12px; border: none; background: none;
+      cursor: pointer; transition: all 0.2s; color: var(--muted); font-family: 'Outfit', sans-serif;
+    }
+    .nav-btn.active { color: var(--accent); }
+    .nav-btn.active .nav-icon { background: rgba(240,168,126,0.15); }
+    .nav-icon { font-size: 22px; width: 40px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 10px; transition: all 0.2s; }
+    .nav-label { font-size: 10px; font-weight: 500; letter-spacing: 0.02em; }
+
+    /* CARDS */
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 16px; padding: 16px; margin-bottom: 12px;
+    }
+    .card-title { font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+    /* SECTION HEADER */
+    .section-header { margin-bottom: 20px; }
+    .section-title { font-size: 24px; font-weight: 700; }
+    .section-sub { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    /* INPUTS */
+    input[type=text], textarea {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; color: var(--text);
+      font-family: 'Outfit', sans-serif; font-size: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type=text]:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: none; min-height: 120px; }
+
+    /* BUTTONS */
+    .btn {
+      border: none; border-radius: 10px; padding: 10px 20px; cursor: pointer;
+      font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600;
+      transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: #1a0e06; }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+    .btn-ghost:active { transform: scale(0.97); }
+    .btn-danger { background: rgba(255,112,112,0.15); color: var(--red); border: 1px solid rgba(255,112,112,0.2); }
+
+    /* ========== POMODORO ========== */
+    .pomo-container { text-align: center; }
+    .pomo-mode-switcher {
+      display: flex; background: var(--surface); border-radius: 12px;
+      padding: 4px; margin-bottom: 28px; border: 1px solid var(--border);
+    }
+    .pomo-mode-btn {
+      flex: 1; padding: 8px; border-radius: 8px; border: none; background: none;
+      cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+      color: var(--muted); transition: all 0.2s;
+    }
+    .pomo-mode-btn.active { background: var(--surface3); color: var(--text); }
+
+    .pomo-ring-wrapper {
+      position: relative; width: 240px; height: 240px; margin: 0 auto 28px;
+    }
+    .pomo-ring { transform: rotate(-90deg); }
+    .pomo-ring-bg { fill: none; stroke: var(--surface2); stroke-width: 8; }
+    .pomo-ring-progress { fill: none; stroke: var(--accent); stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+    .pomo-time {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    .pomo-digits {
+      font-family: 'JetBrains Mono', monospace; font-size: 52px; font-weight: 700;
+      color: var(--text); letter-spacing: -2px; line-height: 1;
+    }
+    .pomo-session-label { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
+    .pomo-controls { display: flex; gap: 10px; justify-content: center; margin-bottom: 24px; }
+    .pomo-big-btn {
+      width: 64px; height: 64px; border-radius: 50%; border: none;
+      background: var(--accent); color: #1a0e06;
+      font-size: 24px; cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .pomo-big-btn:active { transform: scale(0.93); }
+    .pomo-reset-btn {
+      width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--border);
+      background: var(--surface2); color: var(--muted);
+      font-size: 18px; cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; align-self: center;
+    }
+
+    .sound-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+    .sound-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 12px 6px; border-radius: 12px; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; transition: all 0.2s;
+      font-size: 22px;
+    }
+    .sound-btn span { font-size: 10px; color: var(--muted); font-weight: 500; font-family: 'Outfit', sans-serif; }
+    .sound-btn.active { border-color: var(--accent); background: rgba(240,168,126,0.1); }
+    .sound-btn.active span { color: var(--accent); }
+
+    .pomo-settings { display: flex; gap: 8px; margin-top: 12px; }
+    .duration-control {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .duration-label { font-size: 11px; color: var(--muted); display: block; }
+    .duration-val { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; }
+    .duration-btns { display: flex; flex-direction: column; gap: 2px; }
+    .dur-btn {
+      width: 22px; height: 18px; border: none; background: var(--surface3); border-radius: 4px;
+      cursor: pointer; color: var(--text); font-size: 10px; display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ========== TASKS ========== */
+    .add-task-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .add-task-row input { flex: 1; }
+    .priority-row { display: flex; gap: 6px; margin-bottom: 12px; }
+    .priority-chip {
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; font-size: 12px; font-weight: 500;
+      color: var(--muted); transition: all 0.2s;
+    }
+    .priority-chip[data-p="high"].active { background: rgba(255,112,112,0.15); border-color: var(--red); color: var(--red); }
+    .priority-chip[data-p="mid"].active { background: rgba(255,209,102,0.15); border-color: var(--yellow); color: var(--yellow); }
+    .priority-chip[data-p="low"].active { background: rgba(107,203,119,0.15); border-color: var(--green); color: var(--green); }
+
+    .task-item {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      background: var(--surface2); border-radius: 12px; margin-bottom: 8px;
+      border: 1px solid var(--border); transition: all 0.2s;
+    }
+    .task-item.done { opacity: 0.45; }
+    .task-check {
+      width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border);
+      flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s; background: none;
+    }
+    .task-check.checked { background: var(--green); border-color: var(--green); }
+    .task-text { flex: 1; font-size: 14px; }
+    .task-item.done .task-text { text-decoration: line-through; }
+    .task-priority-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .task-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; }
+    .tasks-filter { display: flex; gap: 6px; margin-bottom: 12px; }
+    .filter-chip {
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: none; cursor: pointer; font-size: 12px; color: var(--muted);
+      transition: all 0.2s; font-family: 'Outfit', sans-serif;
+    }
+    .filter-chip.active { background: var(--surface3); color: var(--text); border-color: var(--muted); }
+
+    /* ========== ROUTINE ========== */
+    .add-routine-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .add-routine-row input { flex: 1; }
+    .routine-item {
+      display: flex; align-items: center; gap: 12px; padding: 14px;
+      background: var(--surface2); border-radius: 12px; margin-bottom: 8px;
+      border: 1px solid var(--border);
+    }
+    .routine-check {
+      width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--border);
+      flex-shrink: 0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      background: none; transition: all 0.2s;
+    }
+    .routine-check.done { background: var(--accent); border-color: var(--accent); }
+    .routine-info { flex: 1; }
+    .routine-name { font-size: 14px; font-weight: 500; }
+    .routine-streak { font-size: 11px; color: var(--muted); margin-top: 2px; }
+    .streak-badge { color: var(--accent); font-weight: 700; }
+    .routine-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+    .routine-progress {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
+      padding: 16px; margin-bottom: 16px; display: flex; align-items: center; gap: 16px;
+    }
+    .rp-circle {
+      position: relative; width: 64px; height: 64px; flex-shrink: 0;
+    }
+    .rp-text { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .rp-pct { font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 700; }
+    .rp-sub { font-size: 10px; color: var(--muted); }
+    .rp-info { flex: 1; }
+    .rp-title { font-size: 15px; font-weight: 600; }
+    .rp-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ========== CALORIES ========== */
+    .day-type-toggle {
+      display: flex; background: var(--surface); border-radius: 12px; padding: 4px;
+      margin-bottom: 16px; border: 1px solid var(--border);
+    }
+    .day-type-btn {
+      flex: 1; padding: 10px; border-radius: 8px; border: none; background: none;
+      cursor: pointer; font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--muted); transition: all 0.2s;
+    }
+    .day-type-btn.active[data-type="high"] { background: rgba(240,168,126,0.2); color: var(--accent); }
+    .day-type-btn.active[data-type="low"] { background: rgba(138,180,248,0.2); color: var(--accent2); }
+
+    .cal-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+    .cal-stat {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px; text-align: center;
+    }
+    .cal-stat-val { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 700; }
+    .cal-stat-label { font-size: 10px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .cal-stat-remain { font-size: 10px; margin-top: 2px; }
+
+    .cal-bar { background: var(--surface3); border-radius: 4px; height: 6px; overflow: hidden; margin: 6px 0; }
+    .cal-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+
+    .preset-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 6px; margin-bottom: 12px; }
+    .preset-btn {
+      padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; font-family: 'Outfit', sans-serif;
+      font-size: 12px; color: var(--text); text-align: left; transition: all 0.15s;
+    }
+    .preset-btn:active { background: var(--surface3); }
+    .preset-name { font-weight: 600; }
+    .preset-macros { color: var(--muted); font-size: 11px; margin-top: 1px; }
+
+    .custom-food-row { display: flex; gap: 6px; margin-bottom: 12px; }
+    .custom-food-row input { flex: 1; }
+    .mini-inputs { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 8px; }
+    .mini-input-wrap { position: relative; }
+    .mini-input-wrap input { padding: 10px 10px 10px 10px; font-size: 13px; }
+    .mini-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
+
+    .food-entry {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      background: var(--surface2); border-radius: 10px; margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+    .food-icon { font-size: 18px; flex-shrink: 0; }
+    .food-info { flex: 1; }
+    .food-name { font-size: 13px; font-weight: 500; }
+    .food-macros { font-size: 11px; color: var(--muted); }
+    .food-del { background: none; border: none; color: var(--muted); cursor: pointer; }
+
+    /* ========== NOTES ========== */
+    .notes-toolbar {
+      display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap;
+    }
+    .note-tag-btn {
+      padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border);
+      background: var(--surface2); cursor: pointer; font-size: 12px; color: var(--muted);
+      font-family: 'Outfit', sans-serif; transition: all 0.2s;
+    }
+    .note-tag-btn.active { background: var(--surface3); color: var(--text); border-color: var(--muted); }
+    .notes-area { min-height: calc(100vh - 280px); }
+    .note-save-bar { display: flex; gap: 8px; margin-top: 10px; }
+    .save-status { font-size: 12px; color: var(--muted); align-self: center; }
+    .notes-list { margin-top: 16px; }
+    .note-card {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 12px;
+      padding: 14px; margin-bottom: 8px;
+    }
+    .note-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .note-card-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent); }
+    .note-card-date { font-size: 11px; color: var(--muted); }
+    .note-card-body { font-size: 13px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+    .note-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+
+    /* MISC */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .empty-icon { font-size: 40px; margin-bottom: 8px; }
+    .empty-text { font-size: 13px; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px;
+      border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="views">
+    <!-- POMODORO -->
+    <div class="view active" id="view-pomo">
+      <div class="section-header">
+        <div class="section-title">🍅 Pomodoro</div>
+        <div class="section-sub" id="pomo-session-count">0 seans tamamlandı</div>
+      </div>
+
+      <div class="pomo-mode-switcher">
+        <button class="pomo-mode-btn active" onclick="setPomoMode('work')">Çalışma</button>
+        <button class="pomo-mode-btn" onclick="setPomoMode('break')">Kısa Mola</button>
+        <button class="pomo-mode-btn" onclick="setPomoMode('longbreak')">Uzun Mola</button>
+      </div>
+
+      <div class="pomo-container">
+        <div class="pomo-ring-wrapper">
+          <svg class="pomo-ring" width="240" height="240" viewBox="0 0 240 240">
+            <circle class="pomo-ring-bg" cx="120" cy="120" r="108"/>
+            <circle class="pomo-ring-progress" id="pomo-ring-prog" cx="120" cy="120" r="108"
+              stroke-dasharray="678.6" stroke-dashoffset="0"/>
+          </svg>
+          <div class="pomo-time">
+            <div class="pomo-digits" id="pomo-display">25:00</div>
+            <div class="pomo-session-label" id="pomo-mode-label">ÇALIŞMA</div>
+          </div>
+        </div>
+
+        <div class="pomo-controls">
+          <button class="pomo-reset-btn" onclick="resetPomo()">↺</button>
+          <button class="pomo-big-btn" id="pomo-play-btn" onclick="togglePomo()">▶</button>
+          <button class="pomo-reset-btn" onclick="skipPomo()">⏭</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Ortam Sesi</div>
+        <div class="sound-grid">
+          <button class="sound-btn" id="sound-none" onclick="setSound('none')">🔇<span>Sessiz</span></button>
+          <button class="sound-btn" id="sound-rain" onclick="setSound('rain')">🌧️<span>Yağmur</span></button>
+          <button class="sound-btn" id="sound-fire" onclick="setSound('fire')">🔥<span>Ateş</span></button>
+          <button class="sound-btn" id="sound-birds" onclick="setSound('birds')">🐦<span>Kuş</span></button>
+          <button class="sound-btn" id="sound-cafe" onclick="setSound('cafe')">☕<span>Kafe</span></button>
+          <button class="sound-btn" id="sound-wind" onclick="setSound('wind')">🌬️<span>Rüzgar</span></button>
+          <button class="sound-btn" id="sound-ocean" onclick="setSound('ocean')">🌊<span>Okyanus</span></button>
+          <button class="sound-btn" id="sound-white" onclick="setSound('white')">📻<span>Beyaz</span></button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Süre Ayarları (dk)</div>
+        <div class="pomo-settings">
+          <div class="duration-control">
+            <div>
+              <span class="duration-label">Çalışma</span>
+              <span class="duration-val" id="dur-work">25</span>
+            </div>
+            <div class="duration-btns">
+              <button class="dur-btn" onclick="adjustDur('work',1)">▲</button>
+              <button class="dur-btn" onclick="adjustDur('work',-1)">▼</button>
+            </div>
+          </div>
+          <div class="duration-control">
+            <div>
+              <span class="duration-label">Kısa Mola</span>
+              <span class="duration-val" id="dur-break">5</span>
+            </div>
+            <div class="duration-btns">
+              <button class="dur-btn" onclick="adjustDur('break',1)">▲</button>
+              <button class="dur-btn" onclick="adjustDur('break',-1)">▼</button>
+            </div>
+          </div>
+          <div class="duration-control">
+            <div>
+              <span class="duration-label">Uzun Mola</span>
+              <span class="duration-val" id="dur-long">15</span>
+            </div>
+            <div class="duration-btns">
+              <button class="dur-btn" onclick="adjustDur('long',1)">▲</button>
+              <button class="dur-btn" onclick="adjustDur('long',-1)">▼</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TASKS -->
+    <div class="view" id="view-tasks">
+      <div class="section-header">
+        <div class="section-title">✅ Görevler</div>
+        <div class="section-sub" id="tasks-count">0 görev</div>
+      </div>
+
+      <div class="card">
+        <div class="add-task-row">
+          <input type="text" id="task-input" placeholder="Yeni görev ekle..." onkeydown="if(event.key==='Enter')addTask()">
+          <button class="btn btn-primary" onclick="addTask()">+</button>
+        </div>
+        <div class="priority-row">
+          <button class="priority-chip active" data-p="high" onclick="selectPriority('high')">🔴 Yüksek</button>
+          <button class="priority-chip" data-p="mid" onclick="selectPriority('mid')">🟡 Orta</button>
+          <button class="priority-chip" data-p="low" onclick="selectPriority('low')">🟢 Düşük</button>
+        </div>
+      </div>
+
+      <div class="tasks-filter">
+        <button class="filter-chip active" data-f="all" onclick="setTaskFilter('all')">Tümü</button>
+        <button class="filter-chip" data-f="todo" onclick="setTaskFilter('todo')">Yapılacak</button>
+        <button class="filter-chip" data-f="done" onclick="setTaskFilter('done')">Tamamlanan</button>
+      </div>
+
+      <div id="tasks-list"></div>
+    </div>
+
+    <!-- ROUTINE -->
+    <div class="view" id="view-routine">
+      <div class="section-header">
+        <div class="section-title">🔄 Rutin</div>
+        <div class="section-sub" id="routine-date"></div>
+      </div>
+
+      <div class="routine-progress" id="routine-progress-card">
+        <div class="rp-circle">
+          <svg width="64" height="64" viewBox="0 0 64 64" style="transform:rotate(-90deg)">
+            <circle fill="none" stroke="var(--surface3)" stroke-width="6" cx="32" cy="32" r="26"/>
+            <circle id="rp-arc" fill="none" stroke="var(--accent)" stroke-width="6" cx="32" cy="32" r="26"
+              stroke-dasharray="163.4" stroke-dashoffset="163.4" stroke-linecap="round"/>
+          </svg>
+          <div class="rp-text">
+            <span class="rp-pct" id="rp-pct">0%</span>
+          </div>
+        </div>
+        <div class="rp-info">
+          <div class="rp-title" id="rp-title">Başlayalım 💪</div>
+          <div class="rp-desc" id="rp-desc">Bugünkü rutinleri tamamla</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="add-routine-row">
+          <input type="text" id="routine-input" placeholder="Yeni rutin ekle..." onkeydown="if(event.key==='Enter')addRoutine()">
+          <button class="btn btn-primary" onclick="addRoutine()">+</button>
+        </div>
+      </div>
+
+      <div id="routine-list"></div>
+    </div>
+
+    <!-- CALORIES -->
+    <div class="view" id="view-cal">
+      <div class="section-header">
+        <div class="section-title">🍗 Kalori</div>
+        <div class="section-sub" id="cal-date"></div>
+      </div>
+
+      <div class="day-type-toggle">
+        <button class="day-type-btn active" data-type="high" onclick="setDayType('high')">🔴 Yüksek Karb<br><small>~2030 kcal</small></button>
+        <button class="day-type-btn" data-type="low" onclick="setDayType('low')">🔵 Düşük Karb<br><small>~1760 kcal</small></button>
+      </div>
+
+      <div class="cal-stats">
+        <div class="cal-stat">
+          <div class="cal-stat-val" id="stat-kcal">0</div>
+          <div class="cal-bar"><div class="cal-bar-fill" id="bar-kcal" style="width:0%;background:var(--accent)"></div></div>
+          <div class="cal-stat-label">Kalori</div>
+          <div class="cal-stat-remain" id="remain-kcal" style="color:var(--accent)"></div>
+        </div>
+        <div class="cal-stat">
+          <div class="cal-stat-val" id="stat-prot">0</div>
+          <div class="cal-bar"><div class="cal-bar-fill" id="bar-prot" style="width:0%;background:var(--accent2)"></div></div>
+          <div class="cal-stat-label">Protein (g)</div>
+          <div class="cal-stat-remain" id="remain-prot" style="color:var(--accent2)"></div>
+        </div>
+        <div class="cal-stat">
+          <div class="cal-stat-val" id="stat-carb">0</div>
+          <div class="cal-bar"><div class="cal-bar-fill" id="bar-carb" style="width:0%;background:var(--green)"></div></div>
+          <div class="cal-stat-label">Karb (g)</div>
+          <div class="cal-stat-remain" id="remain-carb" style="color:var(--green)"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Hızlı Ekle — Presetler</div>
+        <div class="preset-grid" id="preset-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Manuel Ekle</div>
+        <input type="text" id="food-name-input" placeholder="Yiyecek adı" style="margin-bottom:8px">
+        <div class="mini-inputs">
+          <div>
+            <div class="mini-label">Kalori</div>
+            <input type="text" id="food-kcal" placeholder="0">
+          </div>
+          <div>
+            <div class="mini-label">Protein (g)</div>
+            <input type="text" id="food-prot" placeholder="0">
+          </div>
+          <div>
+            <div class="mini-label">Karb (g)</div>
+            <input type="text" id="food-carb" placeholder="0">
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="addFoodManual()">Ekle</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Bugün Yenenler</div>
+        <div id="food-list"></div>
+        <button class="btn btn-danger" style="width:100%;margin-top:8px" onclick="clearFoods()">Günü Sıfırla</button>
+      </div>
+    </div>
+
+    <!-- NOTES -->
+    <div class="view" id="view-notes">
+      <div class="section-header">
+        <div class="section-title">📝 Notlar</div>
+        <div class="section-sub">Düşüncelerini kaydet</div>
+      </div>
+
+      <div class="card">
+        <div class="notes-toolbar">
+          <button class="note-tag-btn active" data-tag="genel" onclick="selectTag('genel')">📌 Genel</button>
+          <button class="note-tag-btn" data-tag="antrenman" onclick="selectTag('antrenman')">💪 Antrenman</button>
+          <button class="note-tag-btn" data-tag="beslenme" onclick="selectTag('beslenme')">🍗 Beslenme</button>
+          <button class="note-tag-btn" data-tag="hedef" onclick="selectTag('hedef')">🎯 Hedef</button>
+        </div>
+        <textarea id="note-textarea" placeholder="Notunu buraya yaz..."></textarea>
+        <div class="note-save-bar">
+          <button class="btn btn-primary" onclick="saveNote()">Kaydet</button>
+          <span class="save-status" id="save-status"></span>
+        </div>
+      </div>
+
+      <div id="notes-list"></div>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showView('pomo',this)">
+      <div class="nav-icon">🍅</div>
+      <span class="nav-label">Pomodoro</span>
+    </button>
+    <button class="nav-btn" onclick="showView('tasks',this)">
+      <div class="nav-icon">✅</div>
+      <span class="nav-label">Görevler</span>
+    </button>
+    <button class="nav-btn" onclick="showView('routine',this)">
+      <div class="nav-icon">🔄</div>
+      <span class="nav-label">Rutin</span>
+    </button>
+    <button class="nav-btn" onclick="showView('cal',this)">
+      <div class="nav-icon">🍗</div>
+      <span class="nav-label">Kalori</span>
+    </button>
+    <button class="nav-btn" onclick="showView('notes',this)">
+      <div class="nav-icon">📝</div>
+      <span class="nav-label">Notlar</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+// ===================== STATE =====================
+const S = {
+  pomo: {
+    mode: 'work',
+    running: false,
+    timeLeft: 25*60,
+    sessions: 0,
+    sound: 'none',
+    workDur: 25,
+    breakDur: 5,
+    longDur: 15,
+    interval: null
+  },
+  tasks: [],
+  taskPriority: 'high',
+  taskFilter: 'all',
+  routines: [],
+  cal: {
+    dayType: 'high',
+    entries: [],
+    date: today()
+  },
+  notes: [],
+  noteTag: 'genel'
+};
+
+function today() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function save() {
+  localStorage.setItem('burakos', JSON.stringify({
+    tasks: S.tasks,
+    routines: S.routines,
+    cal: S.cal,
+    notes: S.notes,
+    pomoSessions: S.pomo.sessions,
+    pomoWorkDur: S.pomo.workDur,
+    pomoBreakDur: S.pomo.breakDur,
+    pomoLongDur: S.pomo.longDur
+  }));
+}
+
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem('burakos') || '{}');
+    if (d.tasks) S.tasks = d.tasks;
+    if (d.routines) S.routines = d.routines;
+    if (d.notes) S.notes = d.notes;
+    if (d.pomoSessions) S.pomo.sessions = d.pomoSessions;
+    if (d.pomoWorkDur) S.pomo.workDur = d.pomoWorkDur;
+    if (d.pomoBreakDur) S.pomo.breakDur = d.pomoBreakDur;
+    if (d.pomoLongDur) S.pomo.longDur = d.pomoLongDur;
+    if (d.cal) {
+      S.cal = d.cal;
+      // Reset if new day
+      if (S.cal.date !== today()) {
+        S.cal.entries = [];
+        S.cal.date = today();
+      }
+    }
+    // Reset routines daily
+    S.routines.forEach(r => {
+      if (r.lastDone !== today()) r.todayDone = false;
+    });
+  } catch(e) {}
+}
+
+// ===================== NAVIGATION =====================
+function showView(id, btn) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (id === 'routine') renderRoutine();
+  if (id === 'cal') renderCal();
+  if (id === 'tasks') renderTasks();
+  if (id === 'notes') renderNotes();
+}
+
+// ===================== POMODORO =====================
+const POMO_MODES = { work: 'ÇALIŞMA', break: 'KISA MOLA', longbreak: 'UZUN MOLA' };
+
+function getModeDur() {
+  if (S.pomo.mode === 'work') return S.pomo.workDur * 60;
+  if (S.pomo.mode === 'break') return S.pomo.breakDur * 60;
+  return S.pomo.longDur * 60;
+}
+
+function formatTime(s) {
+  const m = Math.floor(s/60);
+  const sec = s % 60;
+  return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+}
+
+function updatePomoUI() {
+  document.getElementById('pomo-display').textContent = formatTime(S.pomo.timeLeft);
+  document.getElementById('pomo-mode-label').textContent = POMO_MODES[S.pomo.mode];
+  document.getElementById('pomo-session-count').textContent = S.pomo.sessions + ' seans tamamlandı';
+  document.getElementById('pomo-play-btn').textContent = S.pomo.running ? '⏸' : '▶';
+  document.getElementById('dur-work').textContent = S.pomo.workDur;
+  document.getElementById('dur-break').textContent = S.pomo.breakDur;
+  document.getElementById('dur-long').textContent = S.pomo.longDur;
+  // Ring
+  const total = getModeDur();
+  const frac = S.pomo.timeLeft / total;
+  const circ = 2 * Math.PI * 108;
+  const offset = circ * (1 - frac);
+  document.getElementById('pomo-ring-prog').style.strokeDashoffset = offset;
+  // Mode buttons
+  document.querySelectorAll('.pomo-mode-btn').forEach((b,i) => {
+    const modes = ['work','break','longbreak'];
+    b.classList.toggle('active', modes[i] === S.pomo.mode);
+  });
+}
+
+function setPomoMode(m) {
+  clearInterval(S.pomo.interval);
+  S.pomo.interval = null;
+  S.pomo.running = false;
+  S.pomo.mode = m;
+  S.pomo.timeLeft = getModeDur();
+  updatePomoUI();
+}
+
+function togglePomo() {
+  if (S.pomo.running) {
+    clearInterval(S.pomo.interval);
+    S.pomo.interval = null;
+    S.pomo.running = false;
+    stopAllSounds();
+  } else {
+    S.pomo.running = true;
+    if (S.pomo.sound !== 'none') playSound(S.pomo.sound);
+    S.pomo.interval = setInterval(() => {
+      S.pomo.timeLeft--;
+      if (S.pomo.timeLeft <= 0) {
+        clearInterval(S.pomo.interval);
+        S.pomo.interval = null;
+        S.pomo.running = false;
+        stopAllSounds();
+        if (S.pomo.mode === 'work') {
+          S.pomo.sessions++;
+          save();
+          // Vibrate
+          if (navigator.vibrate) navigator.vibrate([200,100,200]);
+          setPomoMode(S.pomo.sessions % 4 === 0 ? 'longbreak' : 'break');
+        } else {
+          setPomoMode('work');
+        }
+        return;
+      }
+      updatePomoUI();
+    }, 1000);
+  }
+  updatePomoUI();
+}
+
+function resetPomo() {
+  clearInterval(S.pomo.interval);
+  S.pomo.interval = null;
+  S.pomo.running = false;
+  S.pomo.timeLeft = getModeDur();
+  stopAllSounds();
+  updatePomoUI();
+}
+
+function skipPomo() {
+  clearInterval(S.pomo.interval);
+  S.pomo.interval = null;
+  S.pomo.running = false;
+  S.pomo.timeLeft = 0;
+  stopAllSounds();
+  if (S.pomo.mode === 'work') {
+    S.pomo.sessions++;
+    save();
+    setPomoMode(S.pomo.sessions % 4 === 0 ? 'longbreak' : 'break');
+  } else {
+    setPomoMode('work');
+  }
+}
+
+function adjustDur(type, d) {
+  if (type === 'work') S.pomo.workDur = Math.max(1, S.pomo.workDur + d);
+  if (type === 'break') S.pomo.breakDur = Math.max(1, S.pomo.breakDur + d);
+  if (type === 'long') S.pomo.longDur = Math.max(1, S.pomo.longDur + d);
+  if (!S.pomo.running) S.pomo.timeLeft = getModeDur();
+  save();
+  updatePomoUI();
+}
+
+// ===================== SOUND ENGINE =====================
+let audioCtx = null;
+let soundNodes = [];
+
+function ensureCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function stopAllSounds() {
+  soundNodes.forEach(n => { try { n.stop(); } catch(e) {} });
+  soundNodes = [];
+}
+
+function makeNoiseBuffer(ctx, seconds, type = 'white') {
+  const rate = ctx.sampleRate;
+  const len = rate * seconds;
+  const buf = ctx.createBuffer(1, len, rate);
+  const data = buf.getChannelData(0);
+  if (type === 'white') {
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  } else if (type === 'pink') {
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
+      b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
+      b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
+      data[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
+      b6=w*0.115926;
+    }
+  } else if (type === 'brown') {
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random() * 2 - 1;
+      last = (last + 0.02 * w) / 1.02;
+      data[i] = last * 3.5;
+    }
+  }
+  return buf;
+}
+
+function playLoopingNoise(ctx, buf, filterType, freq, q, gain) {
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.loop = true;
+  const flt = ctx.createBiquadFilter();
+  flt.type = filterType; flt.frequency.value = freq; if (q) flt.Q.value = q;
+  const g = ctx.createGain(); g.gain.value = gain;
+  src.connect(flt); flt.connect(g); g.connect(ctx.destination);
+  src.start();
+  return src;
+}
+
+function playSound(type) {
+  ensureCtx();
+  stopAllSounds();
+  const ctx = audioCtx;
+
+  if (type === 'rain') {
+    const buf = makeNoiseBuffer(ctx, 4, 'white');
+    const s1 = playLoopingNoise(ctx, buf, 'bandpass', 600, 1.2, 0.18);
+    const s2 = playLoopingNoise(ctx, buf, 'lowpass', 300, 0, 0.1);
+    soundNodes.push(s1, s2);
+  }
+  else if (type === 'fire') {
+    const buf = makeNoiseBuffer(ctx, 4, 'brown');
+    const s1 = playLoopingNoise(ctx, buf, 'lowpass', 180, 0, 0.4);
+    const s2 = playLoopingNoise(ctx, buf, 'bandpass', 80, 2, 0.15);
+    soundNodes.push(s1, s2);
+  }
+  else if (type === 'birds') {
+    const buf = makeNoiseBuffer(ctx, 4, 'pink');
+    const bg = playLoopingNoise(ctx, buf, 'bandpass', 2000, 3, 0.05);
+    soundNodes.push(bg);
+    // Chirps
+    function chirp() {
+      if (soundNodes.length === 0) return;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      const f = 1800 + Math.random() * 1200;
+      osc.frequency.value = f;
+      osc.frequency.linearRampToValueAtTime(f * 1.15, ctx.currentTime + 0.08);
+      g.gain.setValueAtTime(0.08, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.start(); osc.stop(ctx.currentTime + 0.15);
+      soundNodes.push(osc);
+      setTimeout(chirp, 400 + Math.random() * 1800);
+    }
+    setTimeout(chirp, 200);
+  }
+  else if (type === 'cafe') {
+    const buf = makeNoiseBuffer(ctx, 4, 'pink');
+    const s = playLoopingNoise(ctx, buf, 'bandpass', 800, 0.8, 0.08);
+    const s2 = playLoopingNoise(ctx, buf, 'highpass', 200, 0, 0.04);
+    soundNodes.push(s, s2);
+  }
+  else if (type === 'wind') {
+    const buf = makeNoiseBuffer(ctx, 6, 'pink');
+    const s = playLoopingNoise(ctx, buf, 'bandpass', 400, 0.5, 0.15);
+    soundNodes.push(s);
+    // Wind swell
+    function swell() {
+      if (soundNodes.length === 0) return;
+      const swellBuf = makeNoiseBuffer(ctx, 3, 'pink');
+      const src = ctx.createBufferSource();
+      src.buffer = swellBuf;
+      const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=300; f.Q.value=0.3;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0,ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0.12, ctx.currentTime+1.5);
+      g.gain.linearRampToValueAtTime(0, ctx.currentTime+3);
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime+3);
+      soundNodes.push(src);
+      setTimeout(swell, 2500 + Math.random()*2000);
+    }
+    swell();
+  }
+  else if (type === 'ocean') {
+    const buf = makeNoiseBuffer(ctx, 6, 'brown');
+    const s = playLoopingNoise(ctx, buf, 'lowpass', 400, 0, 0.35);
+    soundNodes.push(s);
+    function wave() {
+      if (soundNodes.length === 0) return;
+      const wb = makeNoiseBuffer(ctx, 4, 'white');
+      const src = ctx.createBufferSource(); src.buffer = wb;
+      const f = ctx.createBiquadFilter(); f.type='bandpass'; f.frequency.value=700; f.Q.value=1.5;
+      const g = ctx.createGain(); g.gain.setValueAtTime(0,ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0.1, ctx.currentTime+1.2);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+4);
+      src.connect(f); f.connect(g); g.connect(ctx.destination);
+      src.start(); src.stop(ctx.currentTime+4);
+      soundNodes.push(src);
+      setTimeout(wave, 3500 + Math.random()*2500);
+    }
+    wave();
+  }
+  else if (type === 'white') {
+    const buf = makeNoiseBuffer(ctx, 4, 'white');
+    const s = playLoopingNoise(ctx, buf, 'lowpass', 8000, 0, 0.1);
+    soundNodes.push(s);
+  }
+}
+
+function setSound(type) {
+  S.pomo.sound = type;
+  document.querySelectorAll('.sound-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sound-' + type)?.classList.add('active');
+  if (type === 'none') { stopAllSounds(); return; }
+  if (S.pomo.running) playSound(type);
+  else { ensureCtx(); }
+}
+
+// ===================== TASKS =====================
+function addTask() {
+  const inp = document.getElementById('task-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  S.tasks.unshift({ id: Date.now(), text, priority: S.taskPriority, done: false, createdAt: today() });
+  inp.value = '';
+  save();
+  renderTasks();
+}
+
+function toggleTask(id) {
+  const t = S.tasks.find(t => t.id === id);
+  if (t) { t.done = !t.done; save(); renderTasks(); }
+}
+
+function deleteTask(id) {
+  S.tasks = S.tasks.filter(t => t.id !== id);
+  save(); renderTasks();
+}
+
+function selectPriority(p) {
+  S.taskPriority = p;
+  document.querySelectorAll('.priority-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.priority-chip[data-p="${p}"]`).classList.add('active');
+}
+
+function setTaskFilter(f) {
+  S.taskFilter = f;
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.filter-chip[data-f="${f}"]`).classList.add('active');
+  renderTasks();
+}
+
+const P_COLORS = { high: 'var(--red)', mid: 'var(--yellow)', low: 'var(--green)' };
+
+function renderTasks() {
+  let tasks = S.tasks;
+  if (S.taskFilter === 'todo') tasks = tasks.filter(t => !t.done);
+  if (S.taskFilter === 'done') tasks = tasks.filter(t => t.done);
+
+  const done = S.tasks.filter(t => t.done).length;
+  document.getElementById('tasks-count').textContent = `${done}/${S.tasks.length} tamamlandı`;
+
+  const el = document.getElementById('tasks-list');
+  if (!tasks.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">✨</div><div class="empty-text">Görev yok</div></div>`;
+    return;
+  }
+  el.innerHTML = tasks.map(t => `
+    <div class="task-item ${t.done ? 'done' : ''}">
+      <button class="task-check ${t.done ? 'checked' : ''}" onclick="toggleTask(${t.id})">
+        ${t.done ? '✓' : ''}
+      </button>
+      <div class="task-priority-dot" style="background:${P_COLORS[t.priority]}"></div>
+      <div class="task-text">${t.text}</div>
+      <button class="task-del" onclick="deleteTask(${t.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ===================== ROUTINE =====================
+function addRoutine() {
+  const inp = document.getElementById('routine-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  S.routines.push({ id: Date.now(), text, streak: 0, todayDone: false, lastDone: null });
+  inp.value = '';
+  save(); renderRoutine();
+}
+
+function toggleRoutine(id) {
+  const r = S.routines.find(r => r.id === id);
+  if (!r) return;
+  if (!r.todayDone) {
+    r.todayDone = true;
+    r.lastDone = today();
+    r.streak++;
+  } else {
+    r.todayDone = false;
+    r.streak = Math.max(0, r.streak - 1);
+    r.lastDone = null;
+  }
+  save(); renderRoutine();
+}
+
+function deleteRoutine(id) {
+  S.routines = S.routines.filter(r => r.id !== id);
+  save(); renderRoutine();
+}
+
+function renderRoutine() {
+  document.getElementById('routine-date').textContent = new Date().toLocaleDateString('tr-TR', {weekday:'long',day:'numeric',month:'long'});
+
+  const total = S.routines.length;
+  const done = S.routines.filter(r => r.todayDone).length;
+  const pct = total ? Math.round(done/total*100) : 0;
+
+  document.getElementById('rp-pct').textContent = pct + '%';
+  const circ = 163.4;
+  document.getElementById('rp-arc').style.strokeDashoffset = circ * (1 - pct/100);
+  document.getElementById('rp-title').textContent = pct === 100 ? 'Mükemmel! 🔥' : pct >= 50 ? 'Yarı yoldasın 💪' : 'Başlayalım 💪';
+  document.getElementById('rp-desc').textContent = `${done}/${total} rutin tamamlandı`;
+
+  const el = document.getElementById('routine-list');
+  if (!S.routines.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">🔄</div><div class="empty-text">Rutin yok, ekle!</div></div>`;
+    return;
+  }
+  el.innerHTML = S.routines.map(r => `
+    <div class="routine-item">
+      <button class="routine-check ${r.todayDone ? 'done' : ''}" onclick="toggleRoutine(${r.id})">
+        ${r.todayDone ? '✓' : ''}
+      </button>
+      <div class="routine-info">
+        <div class="routine-name">${r.text}</div>
+        <div class="routine-streak">🔥 <span class="streak-badge">${r.streak}</span> gün seri</div>
+      </div>
+      <button class="routine-del" onclick="deleteRoutine(${r.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ===================== CALORIES =====================
+const GOALS = {
+  high: { kcal: 2030, prot: 147, carb: 254 },
+  low:  { kcal: 1760, prot: 138, carb: 152 }
+};
+
+const PRESETS = [
+  { name: 'KYK Kahvaltı', emoji: '🍳', kcal: 700, prot: 28, carb: 70 },
+  { name: 'KYK Akşam', emoji: '🍽️', kcal: 850, prot: 38, carb: 90 },
+  { name: 'Tavuk (200g çiğ)', emoji: '🍗', kcal: 220, prot: 46, carb: 0 },
+  { name: 'Pirinç (200g çiğ)', emoji: '🍚', kcal: 720, prot: 15, carb: 156 },
+  { name: 'Protein tozu (1 sc)', emoji: '🥤', kcal: 120, prot: 24, carb: 4 },
+  { name: 'Kreatin (5g)', emoji: '💊', kcal: 0, prot: 0, carb: 0 },
+  { name: 'Yumurta (2 adet)', emoji: '🥚', kcal: 140, prot: 12, carb: 0 },
+  { name: 'Kaşar (30g)', emoji: '🧀', kcal: 115, prot: 8, carb: 0 },
+];
+
+function setDayType(type) {
+  S.cal.dayType = type;
+  document.querySelectorAll('.day-type-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.day-type-btn[data-type="${type}"]`).classList.add('active');
+  save(); renderCal();
+}
+
+function addFoodPreset(idx) {
+  const p = PRESETS[idx];
+  S.cal.entries.push({ id: Date.now(), name: p.name, emoji: p.emoji, kcal: p.kcal, prot: p.prot, carb: p.carb });
+  save(); renderCal();
+}
+
+function addFoodManual() {
+  const name = document.getElementById('food-name-input').value.trim();
+  const kcal = parseInt(document.getElementById('food-kcal').value) || 0;
+  const prot = parseInt(document.getElementById('food-prot').value) || 0;
+  const carb = parseInt(document.getElementById('food-carb').value) || 0;
+  if (!name) return;
+  S.cal.entries.push({ id: Date.now(), name, emoji: '🍴', kcal, prot, carb });
+  document.getElementById('food-name-input').value = '';
+  document.getElementById('food-kcal').value = '';
+  document.getElementById('food-prot').value = '';
+  document.getElementById('food-carb').value = '';
+  save(); renderCal();
+}
+
+function deleteFoodEntry(id) {
+  S.cal.entries = S.cal.entries.filter(e => e.id !== id);
+  save(); renderCal();
+}
+
+function clearFoods() {
+  if (confirm('Bugünün tüm kayıtları silinecek. Emin misin?')) {
+    S.cal.entries = [];
+    save(); renderCal();
+  }
+}
+
+function renderCal() {
+  document.getElementById('cal-date').textContent = new Date().toLocaleDateString('tr-TR', {weekday:'long',day:'numeric',month:'long'});
+
+  const g = GOALS[S.cal.dayType];
+  const totKcal = S.cal.entries.reduce((a,e) => a+e.kcal, 0);
+  const totProt = S.cal.entries.reduce((a,e) => a+e.prot, 0);
+  const totCarb = S.cal.entries.reduce((a,e) => a+e.carb, 0);
+
+  document.getElementById('stat-kcal').textContent = totKcal;
+  document.getElementById('stat-prot').textContent = totProt;
+  document.getElementById('stat-carb').textContent = totCarb;
+
+  const pKcal = Math.min(100, totKcal/g.kcal*100);
+  const pProt = Math.min(100, totProt/g.prot*100);
+  const pCarb = Math.min(100, totCarb/g.carb*100);
+
+  document.getElementById('bar-kcal').style.width = pKcal + '%';
+  document.getElementById('bar-prot').style.width = pProt + '%';
+  document.getElementById('bar-carb').style.width = pCarb + '%';
+
+  document.getElementById('remain-kcal').textContent = `${g.kcal - totKcal} kaldı`;
+  document.getElementById('remain-prot').textContent = `${g.prot - totProt}g kaldı`;
+  document.getElementById('remain-carb').textContent = `${g.carb - totCarb}g kaldı`;
+
+  // Presets
+  document.getElementById('preset-grid').innerHTML = PRESETS.map((p,i) => `
+    <button class="preset-btn" onclick="addFoodPreset(${i})">
+      <div class="preset-name">${p.emoji} ${p.name}</div>
+      <div class="preset-macros">${p.kcal} kcal · ${p.prot}g P · ${p.carb}g K</div>
+    </button>
+  `).join('');
+
+  // Food list
+  const fl = document.getElementById('food-list');
+  if (!S.cal.entries.length) {
+    fl.innerHTML = `<div class="empty-state" style="padding:20px 0"><div class="empty-text">Henüz bir şey eklemedin</div></div>`;
+    return;
+  }
+  fl.innerHTML = S.cal.entries.map(e => `
+    <div class="food-entry">
+      <div class="food-icon">${e.emoji}</div>
+      <div class="food-info">
+        <div class="food-name">${e.name}</div>
+        <div class="food-macros">${e.kcal} kcal · ${e.prot}g protein · ${e.carb}g karb</div>
+      </div>
+      <button class="food-del" onclick="deleteFoodEntry(${e.id})">✕</button>
+    </div>
+  `).join('');
+}
+
+// ===================== NOTES =====================
+function selectTag(tag) {
+  S.noteTag = tag;
+  document.querySelectorAll('.note-tag-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.note-tag-btn[data-tag="${tag}"]`).classList.add('active');
+}
+
+function saveNote() {
+  const text = document.getElementById('note-textarea').value.trim();
+  if (!text) return;
+  S.notes.unshift({
+    id: Date.now(),
+    tag: S.noteTag,
+    text,
+    date: new Date().toLocaleDateString('tr-TR', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})
+  });
+  document.getElementById('note-textarea').value = '';
+  const status = document.getElementById('save-status');
+  status.textContent = '✓ Kaydedildi';
+  setTimeout(() => status.textContent = '', 2000);
+  save(); renderNotes();
+}
+
+function deleteNote(id) {
+  S.notes = S.notes.filter(n => n.id !== id);
+  save(); renderNotes();
+}
+
+const TAG_LABELS = { genel:'📌 Genel', antrenman:'💪 Antrenman', beslenme:'🍗 Beslenme', hedef:'🎯 Hedef' };
+
+function renderNotes() {
+  const el = document.getElementById('notes-list');
+  if (!S.notes.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">Henüz not yok</div></div>`;
+    return;
+  }
+  el.innerHTML = S.notes.map(n => `
+    <div class="note-card">
+      <div class="note-card-header">
+        <span class="note-card-tag">${TAG_LABELS[n.tag] || n.tag}</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="note-card-date">${n.date}</span>
+          <button class="note-del" onclick="deleteNote(${n.id})">✕</button>
+        </div>
+      </div>
+      <div class="note-card-body">${n.text}</div>
+    </div>
+  `).join('');
+}
+
+// ===================== INIT =====================
+load();
+updatePomoUI();
+renderTasks();
+renderRoutine();
+renderCal();
+renderNotes();
+document.getElementById('sound-none').classList.add('active');
+
+// Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
